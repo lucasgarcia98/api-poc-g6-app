@@ -5,7 +5,6 @@ const { body, validationResult } = require('express-validator');
 //Listar turmas por id escola
 const listarTurmasByEscolaId = async (req, res) => {
   try {
-    console.log(req)
     const { escolaId } = req.params;
     if (!escolaId) {
       return res.status(400).json({ error: 'Parâmetro "escolaId" é obrigatório' });

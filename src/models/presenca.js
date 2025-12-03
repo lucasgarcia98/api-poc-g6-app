@@ -27,6 +27,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: false
+    },
+    observacao: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     tableName: 'Presencas',

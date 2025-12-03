@@ -30,7 +30,6 @@ const registrarPresenca = [
   body('synced').optional().isBoolean().toBoolean(),
 
   async (req, res) => {
-    console.log(req.body)
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
@@ -147,39 +146,89 @@ const listarPresencasAluno = async (req, res) => {
 const sincronizarPresencas = async (req, res) => {
   try {
     const { presencas } = req.body;
-    
+
     if (!presencas || !Array.isArray(presencas) || presencas.length === 0) {
       return res.status(400).json({ error: 'Lista de presenças é obrigatória' });
     }
 
-    const resultados = await Promise.allSettled(
-      presencas.map(presenca => {
-       
-        // Verifica se a presença já existe
-        return Presenca.findOne({
-          where: {
-            id: presenca.id
-          }
-        }).then(existente => {
-          console.log(existente.toJSON())
-          if (existente) {
-            // Atualiza a presença existente
-            return existente.update({
-              present: presenca.present,
-              synced: true
-            });
-          } else {
-            // Cria uma nova presença
-            return Presenca.create({
-              ...presenca,
-              synced: true
-            });
-          }
-        });
-      })
-    );
+    const resultados = [];
 
-    // Processa os resultados
+    for (const presenca of presencas) {
+      try {
+      let presencaFind = await Presenca.findOne({
+        where: {
+          id: presenca.id
+        }
+      })
+      console.log('<----------------------->')
+      if (!presencaFind && presenca.id) {
+        presencaFind = await Presenca.findOne({
+          where: {
+            AlunoId: presenca.AlunoId,
+            date: presenca.date
+          }
+        })
+      }
+
+      if (presencaFind) {
+        const atualizada = await presencaFind.update({
+          present: presenca.present,
+          synced: true,
+          id: presencaFind.id
+        })
+        console.log({
+          message: 'Presença atualizada',
+          atualizada: atualizada.toJSON()
+        })
+      } else {
+        try {
+          const criada = await Presenca.create({
+            ...presenca,
+            synced: true
+          })
+          console.log({
+            message: 'Nova presença criada',
+            criada: criada.toJSON()
+          })
+        } catch (createError) {
+          if (createError.name === 'SequelizeUniqueConstraintError') {
+            const existing = await Presenca.findOne({
+              where: {
+                AlunoId: presenca.AlunoId,
+                date: presenca.date
+              }
+            })
+            if (existing) {
+              const atualizada = await existing.update({
+                present: presenca.present,
+                synced: true
+              })
+              console.log({
+                message: 'Presença encontrada por AlunoId e data, atualizada',
+                atualizada: atualizada.toJSON()
+              })
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
+      }
+
+      resultados.push({
+        status: 'fulfilled',
+        value: presenca
+      })
+    } catch (error) {
+      console.log(error)
+      resultados.push({
+        status: 'rejected',
+        reason: error
+      })
+    }
+    }
+
     const sucessos = resultados.filter(r => r.status === 'fulfilled').map(r => r.value);
     const falhas = resultados
       .filter((r, index) => r.status === 'rejected')
@@ -191,7 +240,7 @@ const sincronizarPresencas = async (req, res) => {
     // Registra as falhas na tabela de registros inválidos
     if (falhas.length > 0) {
       await Promise.all(
-        falhas.map(falha => 
+        falhas.map(falha =>
           RegistroInvalido.create({
             tabelaOrigem: 'Presenca',
             dadosOriginais: falha.presenca,
@@ -204,12 +253,11 @@ const sincronizarPresencas = async (req, res) => {
 
     res.json({
       message: `${sucessos.length} presença(s) sincronizada(s) com sucesso`,
-      falhas: falhas.length > 0 ? falhas.length : undefined
+      falhas: JSON.stringify(falhas)
     });
 
   } catch (error) {
-    console.error('Erro ao sincronizar presenças:', error);
-    
+
     // Registra o erro na tabela de registros inválidos
     if (req.body.presencas && Array.isArray(req.body.presencas)) {
       await RegistroInvalido.create({
@@ -219,8 +267,8 @@ const sincronizarPresencas = async (req, res) => {
         observacoes: error.message
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Erro ao sincronizar presenças',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });

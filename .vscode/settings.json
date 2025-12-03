@@ -1,0 +1,11 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "driver": "SQLite",
+            "database": "${workspaceFolder:api-poc-g6-app}/database.sqlite",
+            "name": "api-poc"
+        }
+    ],
+    "sqltools.useNodeRuntime": true
+}
