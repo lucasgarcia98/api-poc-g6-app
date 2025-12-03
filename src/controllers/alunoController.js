@@ -12,7 +12,7 @@ const listarTodosAlunos = async (req, res) => {
         attributes: ['id', 'name']
       }, {
         model: Presenca,
-        attributes: ['id', 'present', 'date'],
+        attributes: ['id', 'present', 'date', 'observacao'],
         required: false
       }],
       order: [['name', 'ASC']]
@@ -41,7 +41,7 @@ const listarAlunosByTurmaId = async (req, res) => {
         attributes: ['id', 'name']
       }, {
         model: Presenca,
-        attributes: ['id', 'present', 'date'],
+        attributes: ['id', 'present', 'date', 'observacao'],
         required: false
       }],
       order: [['name', 'ASC']]

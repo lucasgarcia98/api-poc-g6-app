@@ -36,7 +36,7 @@ const registrarPresenca = [
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { id, AlunoId, date, present, synced = true } = req.body;
+      const { id, AlunoId, date, present, synced = true, observacao } = req.body;
 
       // Verifica se o aluno existe
       const aluno = await Aluno.findByPk(AlunoId);
@@ -50,7 +50,8 @@ const registrarPresenca = [
           AlunoId,
           date: new Date(date).toISOString().split('T')[0], // Garante o formato YYYY-MM-DD
           present,
-          synced
+          synced,
+          observacao
         },
         {
           where: {
@@ -92,7 +93,7 @@ const listarPresencasTurma = async (req, res) => {
       where: {
         date: new Date(date).toISOString().split('T')[0]
       },
-      attributes: ['id', 'present', 'date', 'synced']
+      attributes: ['id', 'present', 'date', 'synced', 'observacao']
     });
 
     res.json(presencas);
@@ -117,7 +118,7 @@ const listarPresencasAluno = async (req, res) => {
     const presencas = await Presenca.findAll({
       where: whereClause,
       order: [['date', 'DESC']],
-      attributes: ['id', 'date', 'present', 'synced']
+      attributes: ['id', 'date', 'present', 'synced', 'observacao']
     });
 
     // Calcular estatísticas
@@ -174,6 +175,7 @@ const sincronizarPresencas = async (req, res) => {
         const atualizada = await presencaFind.update({
           present: presenca.present,
           synced: true,
+          observacao: presenca.observacao,
           id: presencaFind.id
         })
         console.log({
@@ -184,7 +186,8 @@ const sincronizarPresencas = async (req, res) => {
         try {
           const criada = await Presenca.create({
             ...presenca,
-            synced: true
+            synced: true,
+            observacao: presenca.observacao
           })
           console.log({
             message: 'Nova presença criada',
@@ -201,7 +204,8 @@ const sincronizarPresencas = async (req, res) => {
             if (existing) {
               const atualizada = await existing.update({
                 present: presenca.present,
-                synced: true
+                synced: true,
+                observacao: presenca.observacao
               })
               console.log({
                 message: 'Presença encontrada por AlunoId e data, atualizada',

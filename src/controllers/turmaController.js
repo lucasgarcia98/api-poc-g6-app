@@ -20,7 +20,7 @@ const listarAlunosByTurmaId = async (req, res) => {
         attributes: ['id', 'name']
       }, {
         model: Presenca,
-        attributes: ['id', 'present', 'date'],
+        attributes: ['id', 'present', 'date', 'observacao'],
         required: false
       }]
     });
@@ -48,6 +48,9 @@ const listarTurmasByEscolaId = async (req, res) => {
       where: whereClause,
       include: [{
         model: Escola,
+        attributes: ['id', 'name']
+      }, {
+        model: Aluno,
         attributes: ['id', 'name']
       }]
     });

@@ -66,6 +66,9 @@ router.get('/', presencaController.listarPresencas);
  *                 type: boolean
  *                 description: Indica se o registro foi sincronizado
  *                 default: false
+ *               observacao:
+ *                 type: string
+ *                 description: Observação sobre a presença
  *     responses:
  *       201:
  *         description: Presença registrada com sucesso
