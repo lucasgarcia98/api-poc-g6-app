@@ -67,6 +67,7 @@ const salvarEscola = [
 
 // Sincronizar escolas
 const sincronizarEscolas = async (req, res) => {
+  console.log('chegou aqui')
   try {
     const { escolas } = req.body;
     
@@ -85,8 +86,6 @@ const sincronizarEscolas = async (req, res) => {
 
       escolaValidas.push(escolaUpdated)
     }
-
-
     
     // Se houver IDs inválidos, registra na tabela de registros inválidos
     if (escolaValidas.length > 0) {

@@ -9,10 +9,11 @@ const listarPresencas = async (req, res) => {
       include: [
         {
           model: Aluno,
-          include: [{ model: Turma }]
+          include: [{ model: Turma, attributes: ['id', 'name'] }],
+          attributes: ['id', 'name', 'TurmaId'],
         }
       ],
-      attributes: ['id', 'date', 'present', 'synced']
+      attributes: ['id', 'date', 'present', 'synced', 'observacao', 'AlunoId']
     });
     res.json(presencas);
   } catch (error) {
@@ -93,7 +94,7 @@ const listarPresencasTurma = async (req, res) => {
       where: {
         date: new Date(date).toISOString().split('T')[0]
       },
-      attributes: ['id', 'present', 'date', 'synced', 'observacao']
+      attributes: ['id', 'present', 'date', 'synced', 'observacao', 'AlunoId']
     });
 
     res.json(presencas);
@@ -118,7 +119,7 @@ const listarPresencasAluno = async (req, res) => {
     const presencas = await Presenca.findAll({
       where: whereClause,
       order: [['date', 'DESC']],
-      attributes: ['id', 'date', 'present', 'synced', 'observacao']
+      attributes: ['id', 'date', 'present', 'synced', 'observacao', 'AlunoId']
     });
 
     // Calcular estatísticas
@@ -165,7 +166,7 @@ const sincronizarPresencas = async (req, res) => {
       if (!presencaFind && presenca.id) {
         presencaFind = await Presenca.findOne({
           where: {
-            AlunoId: presenca.AlunoId,
+            AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
             date: presenca.date
           }
         })
@@ -197,7 +198,7 @@ const sincronizarPresencas = async (req, res) => {
           if (createError.name === 'SequelizeUniqueConstraintError') {
             const existing = await Presenca.findOne({
               where: {
-                AlunoId: presenca.AlunoId,
+                AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
                 date: presenca.date
               }
             })
@@ -257,7 +258,8 @@ const sincronizarPresencas = async (req, res) => {
 
     res.json({
       message: `${sucessos.length} presença(s) sincronizada(s) com sucesso`,
-      falhas: JSON.stringify(falhas)
+      falhas: JSON.stringify(falhas),
+      sucessos: JSON.stringify(sucessos)
     });
 
   } catch (error) {

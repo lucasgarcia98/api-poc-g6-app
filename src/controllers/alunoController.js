@@ -94,39 +94,52 @@ const sincronizarAlunos = async (req, res) => {
     const { alunos } = req.body;
     
     // Verifica se os dados são corretos
-    if (!alunos || !Array.isArray(alunos)) {
+    if (!alunos || !Array.isArray(alunos) || alunos.length === 0) {
       return res.status(400).json({ error: 'Lista de alunos é obrigatória' });
     }
 
-    const alunosValidos = []
+    const alunosAtualizadosComSucesso = [];
+    const alunosInvalidos = [];
 
     for (const aluno of alunos) {
-      const {id, ...restAluno} = aluno
-      const alunoUpdated =await Aluno.update(
-        { ...restAluno, synced: true},
-        { where: { id: id } }
-      )
+      const { id, ...restAluno } = aluno;
 
-      alunoUpdated[0] > 0 ? alunosValidos.push(alunoUpdated) : null;
+      if (!id) {
+        alunosInvalidos.push(aluno);
+        continue;
+      }
+
+      const [rowsUpdated] = await Aluno.update(
+        { ...restAluno, synced: true },
+        { where: { id } }
+      );
+
+      if (rowsUpdated > 0) {
+        alunosAtualizadosComSucesso.push(aluno);
+      } else {
+        alunosInvalidos.push(aluno);
+      }
     }
-    
-    // Se houver IDs inválidos, registra na tabela de registros inválidos
-    if (alunosValidos.length > 0) {
-      const alunosInvalidos = alunos.filter(aluno => !alunosValidos.includes(aluno.id));
-      
+
+    if (alunosInvalidos.length > 0) {
       await RegistroInvalido.create({
         tabelaOrigem: 'Aluno',
-        dadosOriginais: alunosInvalidos.map(aluno => ({ id: aluno.id, name: aluno.name, turmaId: aluno.turmaId, synced: aluno.synced })),
+        dadosOriginais: alunosInvalidos.map(aluno => ({
+          id: aluno.id,
+          name: aluno.name,
+          turmaId: aluno.turmaId,
+          synced: aluno.synced
+        })),
         motivo: 'IDs de alunos inválidos durante a sincronização',
-        observacoes: `As seguintes escolas não foram encontradas no banco de dados: ${alunosInvalidos.join(', ')}`
+        observacoes: `Os seguintes alunos não foram encontrados no banco de dados: ${alunosInvalidos.map(a => a.id).join(', ')}`
       });
-      res.json({
-        message: `${alunosValidos.length} aluno(s) marcado(s) como sincronizado(s)`,
-        alunosInvalidos: alunosInvalidos.length > 0 ? alunosInvalidos : undefined
-      });
-      return;
     }
-    
+
+    return res.json({
+      message: `${alunosAtualizadosComSucesso.length} aluno(s) marcado(s) como sincronizado(s)`,
+      alunosInvalidos: alunosInvalidos.length > 0 ? alunosInvalidos : undefined
+    });
+  } catch (error) {
     if (req.body.alunos && Array.isArray(req.body.alunos)) {
       await RegistroInvalido.create({
         tabelaOrigem: 'Aluno',
@@ -135,24 +148,6 @@ const sincronizarAlunos = async (req, res) => {
         observacoes: error.message
       });
     }
-
-    const idsCorretos = result.map(aluno => aluno.id);
-    const idsInvalidos = alunos.filter(aluno => !idsCorretos.includes(aluno.id));
-    if (idsInvalidos.length > 0) {
-      
-      // Salva os ids inválidos na tabela de registro invalido
-      await RegistroInvalido.create({
-        tabelaOrigem: 'Aluno',
-        dadosOriginais: idsInvalidos.map(aluno => ({ id: aluno.id, name: aluno.name, turmaId: aluno.turmaId, synced: aluno.synced })),
-        motivo: 'Dados inválidos recebidos para atualização',
-        observacoes: 'Alunos com os ids ' + idsInvalidos.map(aluno => aluno.id).join(', ') + ' não foram atualizados'
-      });      
-    }
-
-    res.json({
-      message: `${result[0]} aluno(s) marcado(s) como sincronizado(s)`
-    });
-  } catch (error) {
     console.error('Erro ao sincronizar alunos:', error);
     res.status(500).json({ error: 'Erro ao sincronizar alunos' });
   }
