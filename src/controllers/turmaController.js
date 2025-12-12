@@ -6,14 +6,14 @@ const listarAlunosByTurmaId = async (req, res) => {
   try {
     const { turmaId } = req.params;
     const { synced } = req.query;
-    
+
     const whereClause = { TurmaId: turmaId };
-    
+
     if (synced === 'true' || synced === 'false') {
       whereClause.synced = synced === 'true';
     }
 
-    const alunos = await Aluno.findAll({ 
+    const alunos = await Aluno.findAll({
       where: whereClause,
       include: [{
         model: Turma,
@@ -24,7 +24,7 @@ const listarAlunosByTurmaId = async (req, res) => {
         required: false
       }]
     });
-    
+
     res.json(alunos);
   } catch (error) {
     console.error('Erro ao buscar alunos:', error);
@@ -37,24 +37,21 @@ const listarTurmasByEscolaId = async (req, res) => {
   try {
     const { escolaId } = req.params;
     const { synced } = req.query;
-    
+
     const whereClause = { EscolaId: escolaId };
-    
+
     if (synced === 'true' || synced === 'false') {
       whereClause.synced = synced === 'true';
     }
 
-    const turmas = await Turma.findAll({ 
+    const turmas = await Turma.findAll({
       where: whereClause,
       include: [{
         model: Escola,
         attributes: ['id', 'name']
-      }, {
-        model: Aluno,
-        attributes: ['id', 'name']
       }]
     });
-    
+
     res.json(turmas);
   } catch (error) {
     console.error('Erro ao buscar turmas:', error);
@@ -67,7 +64,7 @@ const salvarTurma = [
   body('name').notEmpty(),
   body('escolaId').isInt(),
   body('synced').optional().isBoolean().toBoolean(),
-  
+
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -76,18 +73,18 @@ const salvarTurma = [
       }
 
       const { id, name, escolaId, synced = true } = req.body;
-      
+
       // Verifica se a escola existe
       const escola = await Escola.findByPk(escolaId);
       if (!escola) {
         return res.status(404).json({ error: 'Escola não encontrada' });
       }
-      
+
       const [turma, created] = await Turma.upsert(
         { id, name, EscolaId: escolaId, synced },
         { returning: true }
       );
-      
+
       res.status(created ? 201 : 200).json(turma);
     } catch (error) {
       console.error('Erro ao salvar turma:', error);
@@ -100,7 +97,7 @@ const salvarTurma = [
 const sincronizarTurmas = async (req, res) => {
   try {
     const { turmas } = req.body;
-    
+
     if (!turmas || !Array.isArray(turmas) || turmas.length === 0) {
       return res.status(400).json({ error: 'Lista de turmas é obrigatória' });
     }
@@ -109,15 +106,15 @@ const sincronizarTurmas = async (req, res) => {
 
     for (const turma of turmas) {
       const [updatedCount] = await Turma.update(
-        { 
+        {
           name: turma.name,
           EscolaId: turma.EscolaId,
-          synced: true 
+          synced: true
         },
-        { 
-          where: { 
-            id: turma.id 
-          } 
+        {
+          where: {
+            id: turma.id
+          }
         }
       );
 
@@ -148,7 +145,7 @@ const sincronizarTurmas = async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao sincronizar turmas:', error);
-    
+
     // Registra o erro na tabela de registros inválidos
     if (req.body.turmas && Array.isArray(req.body.turmas)) {
       await RegistroInvalido.create({
@@ -158,8 +155,8 @@ const sincronizarTurmas = async (req, res) => {
         observacoes: error.message
       });
     }
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Erro ao sincronizar turmas',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -170,21 +167,21 @@ const sincronizarTurmas = async (req, res) => {
 const listarTodasTurmas = async (req, res) => {
   try {
     const { synced } = req.query;
-    
+
     const whereClause = {};
-    
+
     if (synced === 'true' || synced === 'false') {
       whereClause.synced = synced === 'true';
     }
 
-    const turmas = await Turma.findAll({ 
+    const turmas = await Turma.findAll({
       where: whereClause,
       include: [{
         model: Escola,
         attributes: ['id', 'name']
       }]
     });
-    
+
     res.json(turmas);
   } catch (error) {
     console.error('Erro ao buscar turmas:', error);

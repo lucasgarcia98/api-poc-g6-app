@@ -164,7 +164,7 @@ router.get('/turmas/:turmaId/presencas', presencaController.listarPresencasTurma
  *                     frequencia:
  *                       type: string
  */
-router.get('/alunos/:alunoId/presencas', presencaController.listarPresencasAluno);
+router.get('/alunos/:alunoId', presencaController.listarPresencasAluno);
 
 /**
  * @swagger
@@ -200,5 +200,76 @@ router.get('/alunos/:alunoId/presencas', presencaController.listarPresencasAluno
  *                   example: '10 presenças marcadas como sincronizadas'
  */
 router.post('/sync', presencaController.sincronizarPresencas);
+
+/**
+ * @swagger
+ * /presencas/batch:
+ *   post:
+ *     summary: Salva presenças em lote
+ *     description: Registra múltiplas presenças de uma só vez
+ *     tags: [Presenças]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - presencas
+ *             properties:
+ *               presencas:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - AlunoId
+ *                     - date
+ *                     - present
+ *                   properties:
+ *                     AlunoId:
+ *                       type: integer
+ *                       description: ID do aluno
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *                       description: Data da presença no formato YYYY-MM-DD
+ *                     present:
+ *                       type: boolean
+ *                       description: Indica se o aluno estava presente
+ *                     synced:
+ *                       type: boolean
+ *                       description: Indica se o registro foi sincronizado
+ *                       default: true
+ *                     observacao:
+ *                       type: string
+ *                       description: Observação sobre a presença
+ *     responses:
+ *       201:
+ *         description: Presenças salvas com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 sucessos:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 falhas:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 totalProcessadas:
+ *                   type: integer
+ *                 totalSucessos:
+ *                   type: integer
+ *                 totalFalhas:
+ *                   type: integer
+ *       400:
+ *         $ref: '#/components/responses/ValidationError'
+ */
+router.post('/batch', presencaController.salvarPresencasBatch);
 
 module.exports = router;

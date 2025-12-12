@@ -157,81 +157,81 @@ const sincronizarPresencas = async (req, res) => {
 
     for (const presenca of presencas) {
       try {
-      let presencaFind = await Presenca.findOne({
-        where: {
-          id: presenca.id
-        }
-      })
-      console.log('<----------------------->')
-      if (!presencaFind && presenca.id) {
-        presencaFind = await Presenca.findOne({
+        let presencaFind = await Presenca.findOne({
           where: {
-            AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
-            date: presenca.date
+            id: presenca.id
           }
         })
-      }
+        console.log('<----------------------->')
+        if (!presencaFind && presenca.id) {
+          presencaFind = await Presenca.findOne({
+            where: {
+              AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
+              date: presenca.date
+            }
+          })
+        }
 
-      if (presencaFind) {
-        const atualizada = await presencaFind.update({
-          present: presenca.present,
-          synced: true,
-          observacao: presenca.observacao,
-          id: presencaFind.id
-        })
-        console.log({
-          message: 'Presença atualizada',
-          atualizada: atualizada.toJSON()
-        })
-      } else {
-        try {
-          const criada = await Presenca.create({
-            ...presenca,
+        if (presencaFind) {
+          const atualizada = await presencaFind.update({
+            present: presenca.present,
             synced: true,
-            observacao: presenca.observacao
+            observacao: presenca.observacao,
+            id: presencaFind.id
           })
           console.log({
-            message: 'Nova presença criada',
-            criada: criada.toJSON()
+            message: 'Presença atualizada',
+            atualizada: atualizada.toJSON()
           })
-        } catch (createError) {
-          if (createError.name === 'SequelizeUniqueConstraintError') {
-            const existing = await Presenca.findOne({
-              where: {
-                AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
-                date: presenca.date
-              }
+        } else {
+          try {
+            const criada = await Presenca.create({
+              ...presenca,
+              synced: true,
+              observacao: presenca.observacao
             })
-            if (existing) {
-              const atualizada = await existing.update({
-                present: presenca.present,
-                synced: true,
-                observacao: presenca.observacao
+            console.log({
+              message: 'Nova presença criada',
+              criada: criada.toJSON()
+            })
+          } catch (createError) {
+            if (createError.name === 'SequelizeUniqueConstraintError') {
+              const existing = await Presenca.findOne({
+                where: {
+                  AlunoId: presenca?.AlunoId || presenca?.aluno?.id,
+                  date: presenca.date
+                }
               })
-              console.log({
-                message: 'Presença encontrada por AlunoId e data, atualizada',
-                atualizada: atualizada.toJSON()
-              })
+              if (existing) {
+                const atualizada = await existing.update({
+                  present: presenca.present,
+                  synced: true,
+                  observacao: presenca.observacao
+                })
+                console.log({
+                  message: 'Presença encontrada por AlunoId e data, atualizada',
+                  atualizada: atualizada.toJSON()
+                })
+              } else {
+                throw createError;
+              }
             } else {
               throw createError;
             }
-          } else {
-            throw createError;
           }
         }
-      }
 
-      resultados.push({
-        status: 'fulfilled',
-        value: presenca
-      })
-    } catch (error) {
-      console.log(error)
-      resultados.push({
-        status: 'rejected',
-        reason: error
-      })
-    }
+        resultados.push({
+          status: 'fulfilled',
+          value: presenca
+        })
+      } catch (error) {
+        console.log(error)
+        resultados.push({
+          status: 'rejected',
+          reason: error
+        })
+      }
     }
 
     const sucessos = resultados.filter(r => r.status === 'fulfilled').map(r => r.value);
@@ -281,10 +281,124 @@ const sincronizarPresencas = async (req, res) => {
   }
 };
 
+// Salvar presenças em lote
+const salvarPresencasBatch = [
+  body('presencas').isArray({ min: 1 }),
+  body('presencas.*.AlunoId').isInt(),
+  body('presencas.*.date').isISO8601().toDate(),
+  body('presencas.*.present').isBoolean(),
+  body('presencas.*.synced').optional().isBoolean().toBoolean(),
+  body('presencas.*.observacao').optional().isString(),
+
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { presencas } = req.body;
+      const resultados = [];
+      const falhas = [];
+
+      // Verificar se todos os alunos existem
+      const alunoIds = [...new Set(presencas.map(p => p.AlunoId))];
+      const alunos = await Aluno.findAll({
+        where: { id: alunoIds },
+        attributes: ['id']
+      });
+
+      const alunosMap = new Map(alunos.map(a => [a.id, true]));
+
+      for (const presencaData of presencas) {
+        try {
+          // Verificar se o aluno existe
+          if (!alunosMap.has(presencaData.AlunoId)) {
+            falhas.push({
+              presenca: presencaData,
+              motivo: 'Aluno não encontrado'
+            });
+            continue;
+          }
+
+          const [presenca, created] = await Presenca.upsert(
+            {
+              id: presencaData?.id,
+              AlunoId: presencaData.AlunoId,
+              date: new Date(presencaData.date).toISOString().split('T')[0],
+              present: presencaData.present,
+              synced: presencaData.synced !== undefined ? presencaData.synced : true,
+              observacao: presencaData.observacao || null,
+            },
+            {
+              where: {
+                AlunoId: presencaData.AlunoId,
+                date: new Date(presencaData.date).toISOString().split('T')[0]
+              },
+              returning: true
+            }
+          );
+
+          resultados.push({
+            id: presenca?.id || created?.id,
+            status: 'success'
+          });
+        } catch (error) {
+          falhas.push({
+            presenca: presencaData,
+            motivo: error.message || 'Erro ao salvar presença'
+          });
+        }
+      }
+
+      // Registra as falhas na tabela de registros inválidos
+      if (falhas.length > 0) {
+        await Promise.all(
+          falhas.map(falha =>
+            RegistroInvalido.create({
+              tabelaOrigem: 'Presenca',
+              dadosOriginais: falha.presenca,
+              motivo: 'Erro ao salvar presença em lote',
+              observacoes: falha.motivo
+            })
+          )
+        );
+      }
+
+      res.status(201).json({
+        message: `${resultados.length} presença(s) salva(s) com sucesso`,
+        sucessos: resultados,
+        falhas: falhas,
+        totalProcessadas: presencas.length,
+        totalSucessos: resultados.length,
+        totalFalhas: falhas.length
+      });
+    } catch (error) {
+      console.error('Erro ao salvar presenças em lote:', error);
+
+      // Registra o erro na tabela de registros inválidos
+      if (req.body.presencas && Array.isArray(req.body.presencas)) {
+        await RegistroInvalido.create({
+          tabelaOrigem: 'Presenca',
+          dadosOriginais: req.body.presencas,
+          motivo: 'Erro durante salvamento em lote',
+          observacoes: error.message
+        });
+      }
+
+      res.status(500).json({
+        error: 'Erro ao salvar presenças em lote',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+];
+
 module.exports = {
   registrarPresenca,
   listarPresencasTurma,
   listarPresencasAluno,
   sincronizarPresencas,
-  listarPresencas
+  listarPresencas,
+  salvarPresencasBatch
 };
