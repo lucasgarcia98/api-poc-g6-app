@@ -9,10 +9,10 @@ async function startServer() {
   try {
     // Sincroniza os modelos com o banco de dados
     await sequelize.sync({ force: false }); // Defina como true para recriar as tabelas
-    
+
     // Gera dados de teste (opcional)
     // await gerarDadosTeste();
-    
+
     // Inicia o servidor
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);

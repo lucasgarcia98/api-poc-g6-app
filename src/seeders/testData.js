@@ -12,39 +12,39 @@ async function gerarDadosTeste() {
     // await Escola.destroy({ where: {} });
 
     console.log('Gerando dados de teste...');
-      
-    //criar um numero aleatorio de escolas de 3 a 10
-    const escolasCount = faker.number.int({ min: 10, max: 20 });
-      const escola = await Escola.create({
-        name: `Escola TESTE CARGA`,
-        address: faker.location.streetAddress(),
-        synced: false
-      });
-      
-      // Cria turmas para cada escola
-      await Promise.all(Array.from({ length: faker.number.int({ min: 2, max: 5 }) }, async (_, i) => {
-        const turma = await Turma.create({
-          name: `TURMAS ESCOLA TESTE CARGA º Ano ${String.fromCharCode(64 + i)}`, // 1º A, 1º B, etc.
-          EscolaId: escola.id,
-          synced: false
-        }, {
-          include: [
-            {
-              model: Escola,
-              attributes: ['id', 'name', 'address']
-            }
-          ]
-        });
 
-        // Cria alunos para cada turma
-        await Promise.all(Array.from({ length: faker.number.int({ min: 200, max: 300 }) }, async (_, j) => {
-          await Aluno.create({
-            name: faker.person.fullName(),
-            TurmaId: turma.id,
-            synced: false
-          });
-        }));
+    //criar um numero aleatorio de escolas de 3 a 10
+    // const escolasCount = faker.number.int({ min: 10, max: 20 });
+    // const escola = await Escola.create({
+    //   name: `Escola TESTE CARGA`,
+    //   address: faker.location.streetAddress(),
+    //   synced: false
+    // });
+
+    // Cria turmas para cada escola
+    await Promise.all(Array.from({ length: faker.number.int({ min: 2, max: 2 }) }, async (_, i) => {
+      const turma = await Turma.create({
+        name: `TURMAS ESCOLA TESTE CARGA º Ano ${String.fromCharCode(64 + i)}`, // 1º A, 1º B, etc.
+        EscolaId: 1,
+        synced: false
+      }, {
+        include: [
+          {
+            model: Escola,
+            attributes: ['id', 'name', 'address']
+          }
+        ]
+      });
+
+      // Cria alunos para cada turma
+      await Promise.all(Array.from({ length: faker.number.int({ min: 50, max: 80 }) }, async (_, j) => {
+        await Aluno.create({
+          name: faker.person.fullName(),
+          TurmaId: turma.id,
+          synced: false
+        });
       }));
+    }));
 
     console.log('Dados de teste gerados com sucesso!');
   } catch (error) {

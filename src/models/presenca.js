@@ -35,12 +35,6 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'Presencas',
     timestamps: true,
-    indexes: [
-      {
-        unique: true,
-        fields: ['AlunoId', 'date']
-      }
-    ]
   });
 
   return Presenca;

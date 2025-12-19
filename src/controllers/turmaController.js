@@ -18,10 +18,6 @@ const listarAlunosByTurmaId = async (req, res) => {
       include: [{
         model: Turma,
         attributes: ['id', 'name']
-      }, {
-        model: Presenca,
-        attributes: ['id', 'present', 'date', 'observacao'],
-        required: false
       }]
     });
 

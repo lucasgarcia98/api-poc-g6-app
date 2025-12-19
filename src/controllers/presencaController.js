@@ -155,6 +155,10 @@ const sincronizarPresencas = async (req, res) => {
 
     const resultados = [];
 
+    console.log({
+      presencas
+    })
+
     for (const presenca of presencas) {
       try {
         let presencaFind = await Presenca.findOne({
@@ -300,20 +304,15 @@ const salvarPresencasBatch = [
       const { presencas } = req.body;
       const resultados = [];
       const falhas = [];
-
-      // Verificar se todos os alunos existem
-      const alunoIds = [...new Set(presencas.map(p => p.AlunoId))];
-      const alunos = await Aluno.findAll({
-        where: { id: alunoIds },
-        attributes: ['id']
-      });
-
-      const alunosMap = new Map(alunos.map(a => [a.id, true]));
+      console.log({
+        presencas
+      })
 
       for (const presencaData of presencas) {
         try {
-          // Verificar se o aluno existe
-          if (!alunosMap.has(presencaData.AlunoId)) {
+          const verifyAlunoExists = await Aluno.findByPk(presencaData.AlunoId);
+
+          if (!verifyAlunoExists) {
             falhas.push({
               presenca: presencaData,
               motivo: 'Aluno não encontrado'
@@ -321,10 +320,39 @@ const salvarPresencasBatch = [
             continue;
           }
 
+          const findAllPresencas = await Presenca.findAll({
+            where: {
+              AlunoId: presencaData?.AlunoId,
+              date: new Date(presencaData.date).toISOString().split('T')[0]
+            },
+            order: [['id', 'DESC']]
+          });
+
+          const getFirstPresenca = findAllPresencas[0];
+
+          if (findAllPresencas.length > 1) {
+            await Promise.all(
+              findAllPresencas.slice(1).map(p => p.destroy())
+            );
+          }
+
+          if (getFirstPresenca) {
+            await getFirstPresenca.update({
+              id: presencaData.id,
+              present: presencaData.present,
+              synced: presencaData.synced !== undefined ? presencaData.synced : true,
+              observacao: presencaData.observacao || null,
+            });
+            resultados.push({
+              id: presencaData.id,
+              status: 'success'
+            });
+            continue;
+          }
+
           const [presenca, created] = await Presenca.upsert(
             {
-              id: presencaData?.id,
-              AlunoId: presencaData.AlunoId,
+              AlunoId: verifyAlunoExists.id,
               date: new Date(presencaData.date).toISOString().split('T')[0],
               present: presencaData.present,
               synced: presencaData.synced !== undefined ? presencaData.synced : true,
@@ -332,7 +360,8 @@ const salvarPresencasBatch = [
             },
             {
               where: {
-                AlunoId: presencaData.AlunoId,
+                id: presencaData?.id,
+                AlunoId: verifyAlunoExists.id,
                 date: new Date(presencaData.date).toISOString().split('T')[0]
               },
               returning: true
@@ -344,6 +373,9 @@ const salvarPresencasBatch = [
             status: 'success'
           });
         } catch (error) {
+          console.log({
+            error
+          })
           falhas.push({
             presenca: presencaData,
             motivo: error.message || 'Erro ao salvar presença'
